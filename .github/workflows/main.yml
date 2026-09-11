@@ -36,10 +36,19 @@ jobs:
           distribution: 'temurin'
 
       - name: Build Android APK
-        run: npx react-native build-android --mode=release
+        run: |
+          if [ -d "android" ]; then
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleRelease
+          else
+            npx expo run:android --variant release || npm run build
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            *.apk
