@@ -23,7 +23,8 @@ jobs:
           PKG_PATH=$(find extracted_app -name "package.json" -type f | head -n 1)
           if [ -n "$PKG_PATH" ]; then
             PROJECT_DIR=$(dirname "$PKG_PATH")
-            cp -r "$PROJECT_DIR"/* .
+            cp -r "$PROJECT_DIR"/. .
+            
           fi
 
       - name: Install Dependencies
@@ -53,3 +54,4 @@ jobs:
           path: |
             android/app/build/outputs/apk/release/*.apk
             *.apk
+            
