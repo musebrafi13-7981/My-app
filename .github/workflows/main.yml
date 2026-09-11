@@ -27,6 +27,10 @@ jobs:
             cp -r "$PROJECT_DIR"/. .
           fi
 
+          if [ -d "./frontend" ]; then
+            cp -r ./frontend/* . 2>/dev/null || true
+          fi
+
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
@@ -52,18 +56,28 @@ jobs:
             node -e "const p=require('./package.json'); p.main='index.js'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
           fi
 
-          # Universal Alias Resolver Setup
           node -e "
             const fs = require('fs');
-            const srcDir = fs.existsSync('./src') ? './src' : (fs.existsSync('./frontend/src') ? './frontend/src' : './src');
-            const babelConfig = 'module.exports = { presets: [\"babel-preset-expo\"], plugins: [[\"module-resolver\", { root: [\"./\"], alias: { \"@\": \"' + srcDir + '\" }, extensions: [\".js\", \".jsx\", \".ts\", \".tsx\", \".json\"] }]] };';
+            const path = require('path');
+            const babelConfig = \`module.exports = {
+              presets: ['babel-preset-expo'],
+              plugins: [
+                ['module-resolver', {
+                  root: ['./'],
+                  alias: { '@': path.resolve(__dirname, 'src') },
+                  extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+                }]
+              ]
+            };\`;
             fs.writeFileSync('babel.config.js', babelConfig);
           "
 
-          # Custom Metro Config for Extensions Resolution
           node -e "
             const fs = require('fs');
-            const metroConfig = 'const { getDefaultConfig } = require(\"@expo/metro-config\"); const config = getDefaultConfig(__dirname); config.resolver.sourceExts = [\"js\", \"jsx\", \"json\", \"ts\", \"tsx\", \"cjs\", \"mjs\"]; module.exports = config;';
+            const metroConfig = \`const { getDefaultConfig } = require('@expo/metro-config');
+            const config = getDefaultConfig(__dirname);
+            config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx', 'cjs', 'mjs'];
+            module.exports = config;\`;
             fs.writeFileSync('metro.config.js', metroConfig);
           "
 
@@ -78,3 +92,4 @@ jobs:
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/*.apk
+          
