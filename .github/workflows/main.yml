@@ -24,7 +24,6 @@ jobs:
           if [ -n "$PKG_PATH" ]; then
             PROJECT_DIR=$(dirname "$PKG_PATH")
             cp -r "$PROJECT_DIR"/. .
-            
           fi
 
       - name: Install Dependencies
@@ -40,13 +39,16 @@ jobs:
 
       - name: Build Android APK
         run: |
-          ENTRY_FILE=$(find . -maxdepth 2 -name "index.js" -o -name "index.ts" -o -name "App.js" -o -name "App.tsx" | head -n 1)
-          if [ -n "$ENTRY_FILE" ]; then
-            node -e "const p=require('./package.json'); p.main='$ENTRY_FILE'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
-          fi
+          ACTUAL_APP=$(find . -not -path '*/node_modules/*' -not -path '*/android/*' -not -path '*/ios/*' \( -name "App.js" -o -name "App.tsx" -o -name "App.jsx" -o -name "index.js" -o -name "index.tsx" \) | head -n 1)
           
-          if [ ! -f "App.js" ] && [ ! -f "App.tsx" ] && [ ! -f "App.jsx" ]; then
-            echo "import { registerRootComponent } from 'expo'; import App from '${ENTRY_FILE:-./index}'; registerRootComponent(App);" > App.js
+          if [ -n "$ACTUAL_APP" ]; then
+            CLEAN_PATH=$(echo "$ACTUAL_APP" | sed 's|^\./||')
+            node -e "const p=require('./package.json'); p.main='$CLEAN_PATH'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
+          fi
+
+          if [ ! -f "index.js" ] && [ ! -f "index.ts" ]; then
+            echo "import { registerRootComponent } from 'expo'; import App from './$CLEAN_PATH'; registerRootComponent(App);" > index.js
+            node -e "const p=require('./package.json'); p.main='index.js'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
           fi
 
           npx expo prebuild --platform android --no-install
@@ -54,15 +56,9 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease
-          
-          
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-            *.apk
-
-            
+          path: android/app/build/outputs/apk/release/*.apk
