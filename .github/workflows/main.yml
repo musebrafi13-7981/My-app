@@ -39,7 +39,8 @@ jobs:
 
       - name: Build Android APK
         run: |
-          npx expo prebuild --platform android --clean || true
+          npx expo prebuild --platform android --no-install
+          
           if [ -d "android" ]; then
             cd android
             chmod +x gradlew
