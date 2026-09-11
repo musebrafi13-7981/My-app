@@ -1,4 +1,3 @@
-
 name: Build Android APK from Release ZIP
 
 on:
@@ -21,10 +20,10 @@ jobs:
         run: |
           curl -L -o micro.zip https://github.com/musebrafi13-7981/My-app/releases/download/v1.0/micro.zip
           unzip -o micro.zip -d extracted_app
-          if [ -d "extracted_app/micro" ]; then
-            cp -r extracted_app/micro/* .
-          else
-            cp -r extracted_app/* .
+          PKG_PATH=$(find extracted_app -name "package.json" -type f | head -n 1)
+          if [ -n "$PKG_PATH" ]; then
+            PROJECT_DIR=$(dirname "$PKG_PATH")
+            cp -r "$PROJECT_DIR"/* .
           fi
 
       - name: Install Dependencies
@@ -44,4 +43,3 @@ jobs:
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
-          
