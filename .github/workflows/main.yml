@@ -5,10 +5,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: My-app
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -51,6 +47,6 @@ jobs:
         with:
           name: app-release
           path: |
-            ${{ github.workspace }}/My-app/android/app/build/outputs/apk/release/*.apk
-            ${{ github.workspace }}/My-app/android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/debug/*.apk
           retention-days: 7
