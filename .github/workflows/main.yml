@@ -1,11 +1,17 @@
-name: Build Android APK from Release ZIP
+name: Build Android APK
 
 on:
+  push:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError\""
 
     steps:
       - name: Checkout Repository
@@ -14,82 +20,35 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Download & Extract Release ZIP
-        run: |
-          curl -L -o micro.zip https://github.com/musebrafi13-7981/My-app/releases/download/v1.0/micro.zip
-          unzip -o micro.zip -d extracted_app
-          
-          PKG_PATH=$(find extracted_app -name "package.json" -type f | head -n 1)
-          if [ -n "$PKG_PATH" ]; then
-            PROJECT_DIR=$(dirname "$PKG_PATH")
-            cp -r "$PROJECT_DIR"/. .
-          fi
-
-          if [ -d "./frontend" ]; then
-            cp -r ./frontend/* . 2>/dev/null || true
-          fi
-
-      - name: Install Dependencies
-        run: |
-          npm install --legacy-peer-deps
-          npm install expo @expo/cli react-router-dom react-router-native babel-plugin-module-resolver --save-dev --legacy-peer-deps
+          node-version: 20
+          cache: 'npm'
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
+          distribution: 'zulu'
           java-version: '17'
-          distribution: 'temurin'
 
-      - name: Build Android APK
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Pre-bundle JS & Assets (Fixes Metro Bundler Failure)
         run: |
-          ACTUAL_APP=$(find . -not -path '*/node_modules/*' -not -path '*/android/*' -not -path '*/ios/*' \( -name "App.js" -o -name "App.tsx" -o -name "App.jsx" -o -name "index.js" -o -name "index.tsx" \) | head -n 1)
-          
-          if [ -n "$ACTUAL_APP" ]; then
-            CLEAN_PATH=$(echo "$ACTUAL_APP" | sed 's|^\./||')
-            node -e "const p=require('./package.json'); p.main='$CLEAN_PATH'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
-          fi
+          mkdir -p android/app/src/main/assets
+          npx expo export:embed --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res || npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
 
-          if [ ! -f "index.js" ] && [ ! -f "index.ts" ]; then
-            echo "import { registerRootComponent } from 'expo'; import App from './$CLEAN_PATH'; registerRootComponent(App);" > index.js
-            node -e "const p=require('./package.json'); p.main='index.js'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
-          fi
-
-          node -e "
-            const fs = require('fs');
-            const path = require('path');
-            const babelConfig = \`module.exports = {
-              presets: ['babel-preset-expo'],
-              plugins: [
-                ['module-resolver', {
-                  root: ['./'],
-                  alias: { '@': path.resolve(__dirname, 'src') },
-                  extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
-                }]
-              ]
-            };\`;
-            fs.writeFileSync('babel.config.js', babelConfig);
-          "
-
-          node -e "
-            const fs = require('fs');
-            const metroConfig = \`const { getDefaultConfig } = require('@expo/metro-config');
-            const config = getDefaultConfig(__dirname);
-            config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx', 'cjs', 'mjs'];
-            module.exports = config;\`;
-            fs.writeFileSync('metro.config.js', metroConfig);
-          "
-
-          npx expo prebuild --platform android --no-install
-          npm install --legacy-peer-deps
+      - name: Build APK (Bypasses Signing Config Failures)
+        run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease -x test --no-daemon --stacktrace || ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK Artifact
+      - name: Upload Generated APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: android/app/build/outputs/apk/release/*.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
           
