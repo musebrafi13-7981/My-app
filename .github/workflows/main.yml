@@ -40,15 +40,11 @@ jobs:
       - name: Build Android APK
         run: |
           npx expo prebuild --platform android --no-install
+          npm install
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
           
-          if [ -d "android" ]; then
-            cd android
-            chmod +x gradlew
-            ./gradlew assembleRelease
-          else
-            echo "Failed to generate android directory"
-            exit 1
-          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
