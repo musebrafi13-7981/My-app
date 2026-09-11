@@ -1,3 +1,4 @@
+
 name: Build Android APK from Release ZIP
 
 on:
@@ -6,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -13,38 +15,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '20'
 
       - name: Download & Extract Release ZIP
         run: |
           curl -L -o micro.zip https://github.com/musebrafi13-7981/My-app/releases/download/v1.0/micro.zip
-          unzip micro.zip
-          ls -la
+          unzip -o micro.zip -d extracted_app
+          if [ -d "extracted_app/micro" ]; then
+            cp -r extracted_app/micro/* .
+          else
+            cp -r extracted_app/* .
+          fi
 
       - name: Install Dependencies
-        run: |
-          if [ -f package.json ]; then npm install; fi
+        run: npm install
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
           java-version: '17'
+          distribution: 'temurin'
 
       - name: Build Android APK
-        run: |
-          if [ -d android ]; then
-            cd android && chmod +x gradlew && ./gradlew assembleRelease
-          else
-            npx expo run:android --variant release || npm run build
-          fi
+        run: npx react-native build-android --mode=release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-            *.apk
-
-            
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
+          
