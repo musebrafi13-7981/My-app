@@ -37,12 +37,14 @@ jobs:
 
       - name: Build Android APK
         run: |
+          npx expo prebuild --platform android || true
           if [ -d "android" ]; then
             cd android
             chmod +x gradlew
             ./gradlew assembleRelease
           else
-            npx expo run:android --variant release || npm run build
+            echo "No android folder generated."
+            exit 1
           fi
 
       - name: Upload APK Artifact
